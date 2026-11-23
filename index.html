@@ -12,6 +12,16 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" type="image/png" href="icon-192.png">
+<script>
+  // Notfall-Reset: Seite mit ?reset aufrufen -> Offline-Speicher (Service Worker + Cache) wird gelöscht.
+  // Bausätze und Fortschritt bleiben erhalten.
+  if (location.search.indexOf("reset") !== -1) {
+    Promise.all([
+      navigator.serviceWorker ? navigator.serviceWorker.getRegistrations().then(function(rs){ return Promise.all(rs.map(function(r){ return r.unregister(); })); }) : null,
+      window.caches ? caches.keys().then(function(ks){ return Promise.all(ks.map(function(k){ return caches.delete(k); })); }) : null
+    ]).catch(function(){}).then(function(){ location.replace(location.pathname); });
+  }
+</script>
 <title>Lego Sortierhilfe</title>
 <style>
   :root{
@@ -140,6 +150,38 @@
   .pm-ctrl button{width:60px;font-size:24px;font-weight:700}
   .pm-ctrl .found{font-size:22px;font-weight:700;min-width:80px;text-align:center}
   .hidden{display:none!important}
+  /* Druck */
+  #printArea{display:none}
+  .optlist{display:flex;flex-direction:column;gap:10px;margin:14px 0}
+  .optlist .toggle{justify-content:flex-start}
+  @media print{
+    @page{size:A4;margin:12mm 10mm}
+    body{background:#fff;font-size:10pt}
+    header,main,#toast,.modal{display:none!important}
+    #printArea{display:block}
+    *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  }
+  .pr-head{display:flex;gap:14px;align-items:center;border-bottom:2px solid #000;padding-bottom:8px;margin-bottom:10px}
+  .pr-head img{width:90px;height:68px;object-fit:contain}
+  .pr-head h1{font-size:16pt;margin:0}
+  .pr-head .sub{font-size:9.5pt;color:#444;margin-top:2px}
+  .pr-head .sum{margin-left:auto;text-align:right;font-size:10pt}
+  .pr-head .sum b{font-size:18pt;display:block}
+  .pr-group{break-inside:auto;margin-bottom:8px}
+  .pr-group h2{font-size:11pt;margin:8px 0 4px;padding:3px 6px;background:#eee;display:flex;align-items:center;gap:6px;break-after:avoid}
+  .pr-group h2 .sw{width:12px;height:12px}
+  .pr-group h2 span.n{margin-left:auto;font-weight:400;font-size:9pt}
+  .pr-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+  .pr-grid.noimg{grid-template-columns:repeat(3,1fr)}
+  .pr-item{display:flex;gap:5px;align-items:center;border:1px solid #bbb;border-radius:4px;padding:3px 4px;break-inside:avoid;min-height:44px}
+  .pr-item .box{width:13px;height:13px;border:1.5px solid #000;border-radius:2px;flex:none}
+  .pr-item img{width:38px;height:38px;object-fit:contain;flex:none}
+  .pr-item .t{flex:1;min-width:0;line-height:1.15}
+  .pr-item .nm{font-size:8pt;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  .pr-item .meta{font-size:7pt;color:#555;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pr-item .meta .sw{width:8px;height:8px;vertical-align:-1px;border-width:.5px}
+  .pr-item .q{font-weight:700;font-size:12pt;flex:none;min-width:28px;text-align:right}
+  .pr-foot{margin-top:10px;font-size:8pt;color:#666;border-top:1px solid #ccc;padding-top:4px}
   /* iPad landscape / large screens */
   @media (min-width:1180px){ .grid{grid-template-columns:repeat(auto-fill,minmax(200px,1fr))} }
   /* iPad Hochformat */
@@ -213,6 +255,7 @@
           </div>
           <div class="row" style="margin-top:14px">
             <button id="backBtn">‹ Übersicht</button>
+            <button id="printBtn" class="primary">🖨 Fehlliste drucken</button>
             <button id="offlineBtn" title="Alle Teilebilder auf dem Gerät speichern">Bilder offline speichern</button>
             <button id="refreshBtn">Neu laden</button>
             <button id="resetBtn">Zurücksetzen</button>
@@ -268,6 +311,27 @@
     </div>
   </div>
 </div>
+
+<!-- Print modal -->
+<div class="modal" id="printModal">
+  <div class="box">
+    <h3>Fehlliste drucken</h3>
+    <div class="small muted" id="printInfo"></div>
+    <div class="optlist">
+      <label class="toggle"><input type="checkbox" id="prImages" checked> Bilder der Teile anzeigen</label>
+      <label class="toggle"><input type="checkbox" id="prSpares"> Ersatzteile mitdrucken</label>
+      <label class="toggle"><input type="checkbox" id="prColorOnly"> Nur die gewählte Farbe</label>
+      <label class="toggle">Gruppieren:
+        <select id="prGroup" style="margin-left:auto"><option value="color">nach Farbe</option><option value="category">nach Kategorie</option><option value="none">ohne</option></select></label>
+    </div>
+    <div class="small muted">Tipp: Im Druckdialog kannst du auch „Als PDF sichern“ wählen.</div>
+    <div class="row" style="justify-content:flex-end;margin-top:18px">
+      <button id="printCancel">Abbrechen</button>
+      <button class="primary" id="printGo">Drucken</button>
+    </div>
+  </div>
+</div>
+<div id="printArea"></div>
 
 <!-- Part detail modal -->
 <div class="modal" id="partModal">
@@ -596,6 +660,76 @@
     $("pmLink").href = p.url || `https://rebrickable.com/parts/${encodeURIComponent(p.partNum)}/`;
   }
 
+  // ---------- Druck: Fehlliste ----------
+  function openPrint(){
+    $("prSpares").checked = prefs.showSpares;
+    $("prGroup").value = prefs.groupBy;
+    $("prColorOnly").checked = !!colorFilter;
+    $("prColorOnly").disabled = !colorFilter;
+    $("prColorOnly").parentElement.style.opacity = colorFilter ? 1 : .5;
+    $("prColorOnly").parentElement.lastChild.textContent = colorFilter ? ` Nur Farbe „${colorFilter}“` : " Nur die gewählte Farbe (keine gewählt)";
+    updPrintInfo();
+    $("printModal").classList.add("open");
+  }
+  function missingParts(){
+    const spares = $("prSpares").checked, onlyCol = $("prColorOnly").checked && colorFilter;
+    return current.parts.map(p => ({p, miss: p.qty - Math.min(current.found[p.id]||0, p.qty)}))
+      .filter(x => x.miss > 0 && (spares || !x.p.spare) && (!onlyCol || x.p.color === colorFilter));
+  }
+  function updPrintInfo(){
+    const m = missingParts();
+    $("printInfo").textContent = m.length ? `${m.reduce((s,x)=>s+x.miss,0)} fehlende Teile in ${m.length} Sorten.` : "Es fehlen keine Teile 🎉";
+    $("printGo").disabled = !m.length;
+  }
+  ["prSpares","prColorOnly"].forEach(id => $(id).onchange = updPrintInfo);
+
+  async function doPrint(){
+    const items = missingParts(), withImg = $("prImages").checked, grp = $("prGroup").value;
+    const totalMiss = items.reduce((s,x)=>s+x.miss,0), pr = progress(current, $("prSpares").checked);
+    items.sort((a,b) => a.p.name.localeCompare(b.p.name, "de"));
+    const groups = new Map();
+    for (const x of items){
+      const k = grp === "color" ? x.p.color : grp === "category" ? x.p.cat : "Alle fehlenden Teile";
+      if (!groups.has(k)) groups.set(k, {key:k, rgb:x.p.rgb, trans:x.p.trans, items:[]});
+      groups.get(k).items.push(x);
+    }
+    const arr = [...groups.values()];
+    if (grp === "color") arr.sort((a,b) => lum(b.rgb) - lum(a.rgb) || a.key.localeCompare(b.key)); else arr.sort((a,b) => a.key.localeCompare(b.key, "de"));
+    const date = new Date().toLocaleDateString("de-DE", {day:"2-digit", month:"2-digit", year:"numeric"});
+    $("printArea").innerHTML = `
+      <div class="pr-head">
+        ${current.img && withImg ? `<img src="${esc(current.img)}" alt="">` : ""}
+        <div><h1>Fehlliste: ${esc(current.name)}</h1>
+          <div class="sub">Set ${esc(current.setNum)} · ${esc(current.year)} · Stand ${date}${$("prColorOnly").checked && colorFilter ? ` · nur Farbe ${esc(colorFilter)}` : ""}</div>
+          <div class="sub">${pr.done} von ${pr.total} Teilen gefunden (${pr.pct} %)</div></div>
+        <div class="sum"><b>${totalMiss}</b>Teile fehlen<br>${items.length} Sorten</div>
+      </div>
+      ${arr.map(g => `<div class="pr-group">
+        ${grp === "none" ? "" : `<h2>${grp === "color" ? `<span class="sw ${g.trans?"trans":""}" style="background:#${esc(g.rgb)}"></span>` : ""}${esc(g.key)}
+          <span class="n">${g.items.reduce((s,x)=>s+x.miss,0)} Teile</span></h2>`}
+        <div class="pr-grid ${withImg ? "" : "noimg"}">${g.items.map(({p, miss}) => `
+          <div class="pr-item"><span class="box"></span>
+            ${withImg && p.img ? `<img src="${esc(p.img)}" alt="">` : ""}
+            <div class="t"><div class="nm">${esc(p.name)}</div>
+              <div class="meta">${grp === "color" ? "" : `<span class="sw ${p.trans?"trans":""}" style="background:#${esc(p.rgb)}"></span> ${esc(p.color)} · `}${esc(p.partNum)}${p.elementId ? " · " + esc(p.elementId) : ""}${p.spare ? " · Ersatz" : ""}</div></div>
+            <span class="q">${miss}×</span></div>`).join("")}
+        </div></div>`).join("")}
+      <div class="pr-foot">Lego Sortierhilfe · Teiledaten: rebrickable.com · Format: Teilenummer · Element-ID</div>`;
+    closeModal("printModal");
+    // Auf Bilder warten (max. 8 s), damit sie im Druck erscheinen
+    const imgs = [...$("printArea").querySelectorAll("img")];
+    if (imgs.length){
+      toast("Bereite Druck vor…");
+      await Promise.race([
+        Promise.all(imgs.map(i => i.complete ? 1 : new Promise(r => { i.onload = i.onerror = r; }))),
+        new Promise(r => setTimeout(r, 8000))
+      ]);
+      $("toast").classList.remove("show");
+    }
+    window.print();
+  }
+  window.addEventListener("afterprint", () => { $("printArea").innerHTML = ""; });
+
   // ---------- Events ----------
   $("homeLink").onclick = showHome; $("backBtn").onclick = showHome;
   $("settingsBtn").onclick = openSettings;
@@ -619,6 +753,9 @@
   $("resetBtn").onclick = () => { if (!confirm("Alle Häkchen für diesen Bausatz entfernen?")) return; current.found = {}; current.updated = Date.now(); undoStack = []; saveSets(); renderParts(); };
   $("refreshBtn").onclick = () => loadSet(current.setNum, true);
   $("offlineBtn").onclick = cacheImages;
+  $("printBtn").onclick = openPrint;
+  $("printCancel").onclick = () => closeModal("printModal");
+  $("printGo").onclick = doPrint;
 
   let ft; $("filterText").oninput = () => { clearTimeout(ft); ft = setTimeout(renderParts, 150); };
   const setPref = (k, v) => { prefs[k] = v; savePrefsOnly(); renderParts(); };
