@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lego Sortierhilfe</title>
+<style>
+  :root{
+    --bg:#f5f5f2; --card:#fff; --ink:#1d1d1f; --muted:#6b6b70; --line:#e2e2de;
+    --accent:#d01012; --accent-ink:#fff; --ok:#1a8f3c; --ok-bg:#e8f5ec; --yellow:#ffcf00;
+    --radius:12px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink);font-size:15px}
+  header{background:var(--accent);color:#fff;padding:12px 18px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:20;box-shadow:0 2px 6px rgba(0,0,0,.15)}
+  header h1{font-size:19px;margin:0;font-weight:700;letter-spacing:.2px;cursor:pointer}
+  header .brick{width:26px;height:18px;background:var(--yellow);border-radius:3px;position:relative;flex:none}
+  header .brick:before,header .brick:after{content:"";position:absolute;top:-5px;width:8px;height:5px;background:var(--yellow);border-radius:2px 2px 0 0}
+  header .brick:before{left:3px} header .brick:after{right:3px}
+  header .spacer{flex:1}
+  button{font:inherit;cursor:pointer;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--ink);padding:7px 12px}
+  button:hover{background:#f0f0ec}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  button.primary:hover{filter:brightness(1.08)}
+  button.ghost{background:transparent;border-color:rgba(255,255,255,.5);color:#fff}
+  button.ghost:hover{background:rgba(255,255,255,.15)}
+  button:disabled{opacity:.5;cursor:default}
+  input,select{font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink)}
+  main{max-width:1200px;margin:0 auto;padding:18px}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:16px}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .muted{color:var(--muted)}
+  .small{font-size:13px}
+  h2{font-size:17px;margin:0 0 12px}
+  #searchForm input{flex:1;min-width:200px;font-size:17px;padding:10px 12px}
+  #searchForm button{font-size:16px;padding:10px 18px}
+  .error{background:#fdecec;border:1px solid #f3b7b7;color:#8a1010;border-radius:8px;padding:10px 12px;margin-top:12px}
+  .info{background:#fff8d6;border:1px solid #f1df8a;border-radius:8px;padding:10px 12px}
+  /* Saved sets */
+  .sets{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+  .setcard{border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff;cursor:pointer;display:flex;flex-direction:column;transition:box-shadow .15s}
+  .setcard:hover{box-shadow:0 4px 14px rgba(0,0,0,.1)}
+  .setcard .img{height:140px;background:#fafafa center/contain no-repeat;border-bottom:1px solid var(--line)}
+  .setcard .body{padding:10px 12px;flex:1;display:flex;flex-direction:column;gap:6px}
+  .setcard .title{font-weight:600;line-height:1.25}
+  .setcard .foot{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .bar{height:8px;background:#ececE8;border-radius:5px;overflow:hidden}
+  .bar>div{height:100%;background:var(--ok);transition:width .25s}
+  .del{border:none;background:none;color:var(--muted);padding:2px 6px;font-size:13px}
+  .del:hover{color:var(--accent);background:none}
+  /* Set view */
+  .sethead{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap}
+  .sethead img{width:160px;height:120px;object-fit:contain;background:#fafafa;border-radius:8px;border:1px solid var(--line)}
+  .sethead .meta{flex:1;min-width:220px}
+  .sethead h2{font-size:21px;margin:0 0 4px}
+  .progress{margin-top:10px}
+  .progress .bar{height:12px}
+  .toolbar{position:sticky;top:54px;z-index:10;background:var(--bg);padding:10px 0;display:flex;flex-wrap:wrap;gap:8px;align-items:center;border-bottom:1px solid var(--line);margin-bottom:12px}
+  .toolbar input[type=search]{flex:1;min-width:160px}
+  .toolbar label{display:flex;align-items:center;gap:6px;font-size:14px;white-space:nowrap}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+  .chip{display:flex;align-items:center;gap:6px;border:1px solid var(--line);background:#fff;border-radius:20px;padding:4px 10px 4px 5px;font-size:13px;cursor:pointer;user-select:none}
+  .chip.active{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+  .chip.done{opacity:.55}
+  .sw{width:18px;height:18px;border-radius:50%;border:1px solid rgba(0,0,0,.25);flex:none}
+  .sw.trans{background-image:linear-gradient(135deg,rgba(255,255,255,.7) 0 30%,transparent 30%)!important}
+  .group{margin-bottom:22px}
+  .group h3{display:flex;align-items:center;gap:10px;font-size:16px;margin:0 0 10px;padding:8px 10px;background:#fff;border:1px solid var(--line);border-radius:10px}
+  .group h3 .sw{width:24px;height:24px}
+  .group h3 .cnt{margin-left:auto;font-weight:500;font-size:13px;color:var(--muted)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:10px}
+  .part{background:#fff;border:2px solid var(--line);border-radius:10px;padding:8px;display:flex;flex-direction:column;gap:6px;position:relative;transition:border-color .15s,background .15s}
+  .part.done{border-color:var(--ok);background:var(--ok-bg)}
+  .part.done .pimg{opacity:.55}
+  .part .pimg{height:110px;display:flex;align-items:center;justify-content:center;background:#fafafa;border-radius:6px;cursor:zoom-in;overflow:hidden}
+  .part .pimg img{max-width:100%;max-height:100%;object-fit:contain}
+  .part .pimg .noimg{color:var(--muted);font-size:12px}
+  .part .qty{z-index:2;position:absolute;top:6px;left:6px;background:var(--ink);color:#fff;border-radius:6px;padding:1px 7px;font-weight:700;font-size:14px}
+  .part .spare{z-index:2;position:absolute;top:6px;right:6px;background:var(--yellow);border-radius:6px;padding:1px 6px;font-size:11px;font-weight:600}
+  .part .pname{font-size:12.5px;line-height:1.25;height:2.5em;overflow:hidden}
+  .part .pmeta{font-size:11.5px;color:var(--muted);display:flex;align-items:center;gap:5px}
+  .part .pmeta .sw{width:12px;height:12px}
+  .part .ctrl{display:flex;align-items:center;gap:6px;margin-top:auto}
+  .part .ctrl button{padding:4px 0;width:32px;font-weight:700}
+  .part .ctrl .found{flex:1;text-align:center;font-variant-numeric:tabular-nums;font-size:14px}
+  .part .ctrl .check{width:auto;flex:none;padding:4px 9px}
+  .part.done .ctrl .check{background:var(--ok);border-color:var(--ok);color:#fff}
+  .empty{text-align:center;padding:30px;color:var(--muted)}
+  .loading{display:flex;align-items:center;gap:10px}
+  .spinner{width:20px;height:20px;border:3px solid #ddd;border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  /* Modal */
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:50;padding:16px}
+  .modal.open{display:flex}
+  .modal .box{background:#fff;border-radius:14px;max-width:520px;width:100%;padding:20px;max-height:90vh;overflow:auto}
+  .modal .box img{width:100%;max-height:340px;object-fit:contain;background:#fafafa;border-radius:8px}
+  .modal h3{margin:0 0 10px}
+  .modal .field{display:flex;flex-direction:column;gap:6px;margin:12px 0}
+  .hidden{display:none!important}
+  a{color:#0b5cad}
+  @media (max-width:600px){
+    main{padding:12px}
+    .grid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr))}
+    .toolbar{top:50px}
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="brick"></div>
+  <h1 id="homeLink" title="Zur Übersicht">Lego Sortierhilfe</h1>
+  <div class="spacer"></div>
+  <button class="ghost" id="settingsBtn" title="Einstellungen">⚙ Einstellungen</button>
+</header>
+
+<main>
+  <!-- HOME -->
+  <section id="homeView">
+    <div class="panel">
+      <h2>Bausatz laden</h2>
+      <form id="searchForm" class="row">
+        <input id="setInput" placeholder="Artikelnummer, z. B. 42115 oder 10497-1" autocomplete="off" inputmode="search">
+        <button class="primary" type="submit">Teile laden</button>
+      </form>
+      <div id="keyHint" class="info small hidden" style="margin-top:12px">
+        Für den Abruf der Teilelisten wird ein kostenloser <b>Rebrickable-API-Schlüssel</b> benötigt.
+        <a href="#" id="keyHintLink">Jetzt eintragen</a>
+      </div>
+      <div id="loadStatus"></div>
+    </div>
+
+    <div class="panel">
+      <div class="row" style="justify-content:space-between;margin-bottom:12px">
+        <h2 style="margin:0">Gespeicherte Bausätze</h2>
+        <div class="row">
+          <button id="exportBtn" class="small" title="Alle Bausätze und Fortschritt als Datei sichern">Sichern</button>
+          <button id="importBtn" class="small" title="Gesicherte Datei wiederherstellen">Wiederherstellen</button>
+          <input type="file" id="importFile" accept="application/json,.json" class="hidden">
+        </div>
+      </div>
+      <div id="savedSets" class="sets"></div>
+    </div>
+  </section>
+
+  <!-- SET VIEW -->
+  <section id="setView" class="hidden">
+    <div class="panel">
+      <div class="sethead">
+        <img id="setImg" alt="">
+        <div class="meta">
+          <h2 id="setName"></h2>
+          <div class="muted" id="setMeta"></div>
+          <div class="progress">
+            <div class="row" style="justify-content:space-between;margin-bottom:4px">
+              <span id="progText" class="small"></span>
+              <span id="progPct" class="small" style="font-weight:600"></span>
+            </div>
+            <div class="bar"><div id="progBar"></div></div>
+          </div>
+          <div class="row" style="margin-top:12px">
+            <button id="backBtn">← Übersicht</button>
+            <button id="resetBtn">Fortschritt zurücksetzen</button>
+            <button id="refreshBtn" title="Teileliste neu von Rebrickable laden">Neu laden</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <input type="search" id="filterText" placeholder="Teil suchen (Name oder Nummer)…">
+      <select id="groupBy" title="Gruppierung">
+        <option value="color">Nach Farbe</option>
+        <option value="category">Nach Kategorie</option>
+        <option value="none">Ohne Gruppierung</option>
+      </select>
+      <select id="sortBy" title="Sortierung innerhalb der Gruppe">
+        <option value="name">Sortierung: Name</option>
+        <option value="qty">Sortierung: Anzahl</option>
+        <option value="part">Sortierung: Teilenummer</option>
+      </select>
+      <label><input type="checkbox" id="hideDone"> Gefundene ausblenden</label>
+      <label><input type="checkbox" id="showSpares" checked> Ersatzteile</label>
+    </div>
+
+    <div id="colorChips" class="chips"></div>
+    <div id="partsList"></div>
+  </section>
+</main>
+
+<!-- Settings modal -->
+<div class="modal" id="settingsModal">
+  <div class="box">
+    <h3>Einstellungen</h3>
+    <div class="field">
+      <label for="apiKey"><b>Rebrickable-API-Schlüssel</b></label>
+      <input id="apiKey" placeholder="z. B. 1a2b3c4d5e6f…" autocomplete="off" spellcheck="false">
+      <div class="small muted">
+        So bekommst du ihn (kostenlos): Konto auf <a href="https://rebrickable.com/signup/" target="_blank" rel="noopener">rebrickable.com</a> anlegen →
+        <a href="https://rebrickable.com/users/profile/settings/#api" target="_blank" rel="noopener">Profil → Settings → API</a> →
+        „Generate new API Key“. Der Schlüssel wird nur hier im Browser gespeichert.
+      </div>
+    </div>
+    <div class="row" style="justify-content:flex-end;margin-top:16px">
+      <button id="settingsCancel">Abbrechen</button>
+      <button class="primary" id="settingsSave">Speichern</button>
+    </div>
+  </div>
+</div>
+
+<!-- Part detail modal -->
+<div class="modal" id="partModal">
+  <div class="box">
+    <img id="pmImg" alt="">
+    <h3 id="pmName" style="margin-top:12px"></h3>
+    <div id="pmMeta" class="muted small"></div>
+    <div class="row" style="justify-content:flex-end;margin-top:16px">
+      <a id="pmLink" target="_blank" rel="noopener" class="small" style="margin-right:auto">Auf Rebrickable ansehen ↗</a>
+      <button id="pmClose">Schließen</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const API = "https://rebrickable.com/api/v3/lego";
+  const LS_KEY = "legoSort.apiKey";
+  const LS_SETS = "legoSort.sets";      // { [setNum]: setData }
+  const LS_CATS = "legoSort.categories";
+  const LS_PREFS = "legoSort.prefs";
+
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+  // ---------- Storage ----------
+  function load(key, fallback){ try{ const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; }catch{ return fallback; } }
+  function save(key, val){
+    try{ localStorage.setItem(key, JSON.stringify(val)); }
+    catch(e){ alert("Speichern fehlgeschlagen (Browser-Speicher voll oder blockiert)."); }
+  }
+  const getKey = () => (localStorage.getItem(LS_KEY) || "").trim();
+  let sets = load(LS_SETS, {});
+  let prefs = Object.assign({groupBy:"color", sortBy:"name", hideDone:false, showSpares:true}, load(LS_PREFS, {}));
+  let current = null;       // current set data
+  let colorFilter = null;   // color name or null
+
+  const saveSets = () => save(LS_SETS, sets);
+
+  // ---------- API ----------
+  function normalizeSetNum(s){
+    s = s.trim().replace(/\s+/g, "");
+    if (!s) return "";
+    return /-\d+$/.test(s) ? s : s + "-1";
+  }
+  async function api(path){
+    const key = getKey();
+    if (!key) throw new Error("NOKEY");
+    const url = (path.startsWith("http") ? path : API + path);
+    const sep = url.includes("?") ? "&" : "?";
+    let res;
+    try { res = await fetch(url + (url.includes("key=") ? "" : sep + "key=" + encodeURIComponent(key))); }
+    catch(e){ throw new Error("Keine Verbindung zu Rebrickable. Bitte Internetverbindung prüfen."); }
+    if (res.status === 404) throw new Error("NOTFOUND");
+    if (res.status === 401 || res.status === 403) throw new Error("Der API-Schlüssel wurde abgelehnt. Bitte in den Einstellungen prüfen.");
+    if (res.status === 429) throw new Error("Zu viele Anfragen – bitte einen Moment warten und erneut versuchen.");
+    if (!res.ok) throw new Error("Fehler beim Abruf (HTTP " + res.status + ").");
+    return res.json();
+  }
+  async function apiAll(path){
+    let out = [], next = path;
+    while (next){ const d = await api(next); out = out.concat(d.results || []); next = d.next; }
+    return out;
+  }
+  async function getCategories(){
+    let cats = load(LS_CATS, null);
+    if (cats) return cats;
+    const list = await apiAll("/part_categories/?page_size=1000");
+    cats = {}; list.forEach(c => cats[c.id] = c.name);
+    save(LS_CATS, cats);
+    return cats;
+  }
+
+  async function fetchSet(setNum){
+    const info = await api(`/sets/${encodeURIComponent(setNum)}/`);
+    const [parts, cats] = await Promise.all([
+      apiAll(`/sets/${encodeURIComponent(setNum)}/parts/?page_size=1000&inc_minifig_parts=1`),
+      getCategories().catch(() => ({}))
+    ]);
+    // Merge identical part/color/spare rows (minifig parts may duplicate)
+    const map = new Map();
+    for (const p of parts){
+      const id = `${p.part.part_num}|${p.color.id}|${p.is_spare ? 1 : 0}`;
+      if (map.has(id)){ map.get(id).qty += p.quantity; continue; }
+      map.set(id, {
+        id,
+        partNum: p.part.part_num,
+        name: p.part.name,
+        img: p.part.part_img_url || "",
+        url: p.part.part_url || "",
+        cat: cats[p.part.part_cat_id] || "Sonstige",
+        color: p.color.name,
+        colorId: p.color.id,
+        rgb: p.color.rgb || "cccccc",
+        trans: !!p.color.is_trans,
+        elementId: p.element_id || "",
+        qty: p.quantity,
+        spare: !!p.is_spare
+      });
+    }
+    return {
+      setNum: info.set_num,
+      name: info.name,
+      year: info.year,
+      numParts: info.num_parts,
+      img: info.set_img_url || "",
+      url: info.set_url || "",
+      parts: [...map.values()],
+      found: {},
+      added: Date.now(),
+      updated: Date.now()
+    };
+  }
+
+  // ---------- Progress ----------
+  function progress(s, includeSpares){
+    let total = 0, done = 0;
+    for (const p of s.parts){
+      if (p.spare && !includeSpares) continue;
+      total += p.qty; done += Math.min(s.found[p.id] || 0, p.qty);
+    }
+    return {total, done, pct: total ? Math.round(done / total * 100) : 0};
+  }
+
+  // ---------- Views ----------
+  function showHome(){
+    current = null; colorFilter = null;
+    $("setView").classList.add("hidden");
+    $("homeView").classList.remove("hidden");
+    $("keyHint").classList.toggle("hidden", !!getKey());
+    renderSaved();
+    history.replaceState(null, "", location.pathname);
+    window.scrollTo(0,0);
+  }
+
+  function renderSaved(){
+    const list = Object.values(sets).sort((a,b) => (b.updated||0) - (a.updated||0));
+    if (!list.length){
+      $("savedSets").innerHTML = `<div class="empty" style="grid-column:1/-1">Noch keine Bausätze gespeichert. Gib oben eine Artikelnummer ein.</div>`;
+      return;
+    }
+    $("savedSets").innerHTML = list.map(s => {
+      const pr = progress(s, false);
+      return `<div class="setcard" data-set="${esc(s.setNum)}">
+        <div class="img" style="background-image:url('${esc(s.img)}')"></div>
+        <div class="body">
+          <div class="title">${esc(s.name)}</div>
+          <div class="small muted">${esc(s.setNum)} · ${esc(s.year)} · ${pr.total} Teile</div>
+          <div class="bar"><div style="width:${pr.pct}%"></div></div>
+          <div class="foot">
+            <span class="small">${pr.done} / ${pr.total} gefunden (${pr.pct} %)</span>
+            <button class="del" data-del="${esc(s.setNum)}" title="Bausatz löschen">Löschen</button>
+          </div>
+        </div></div>`;
+    }).join("");
+  }
+
+  function openSet(setNum){
+    current = sets[setNum];
+    if (!current) return showHome();
+    colorFilter = null;
+    $("homeView").classList.add("hidden");
+    $("setView").classList.remove("hidden");
+    $("setImg").src = current.img || ""; $("setImg").classList.toggle("hidden", !current.img);
+    $("setName").textContent = current.name;
+    $("setMeta").innerHTML = `${esc(current.setNum)} · ${esc(current.year)} · ${current.parts.length} verschiedene Teile` +
+      (current.url ? ` · <a href="${esc(current.url)}" target="_blank" rel="noopener">Rebrickable ↗</a>` : "");
+    $("groupBy").value = prefs.groupBy; $("sortBy").value = prefs.sortBy;
+    $("hideDone").checked = prefs.hideDone; $("showSpares").checked = prefs.showSpares;
+    $("filterText").value = "";
+    history.replaceState(null, "", "#" + encodeURIComponent(setNum));
+    renderParts();
+    window.scrollTo(0,0);
+  }
+
+  function colorLum(rgb){
+    const n = parseInt(rgb, 16); const r = n>>16 & 255, g = n>>8 & 255, b = n & 255;
+    return 0.299*r + 0.587*g + 0.114*b;
+  }
+
+  function updateProgress(){
+    const pr = progress(current, prefs.showSpares);
+    $("progText").textContent = `${pr.done} von ${pr.total} Teilen gefunden`;
+    $("progPct").textContent = pr.pct + " %";
+    $("progBar").style.width = pr.pct + "%";
+  }
+
+  function visibleParts(ignoreColor){
+    const q = $("filterText").value.trim().toLowerCase();
+    return current.parts.filter(p => {
+      if (p.spare && !prefs.showSpares) return false;
+      if (prefs.hideDone && (current.found[p.id]||0) >= p.qty) return false;
+      if (!ignoreColor && colorFilter && p.color !== colorFilter) return false;
+      if (q && !(p.name.toLowerCase().includes(q) || p.partNum.toLowerCase().includes(q) || p.color.toLowerCase().includes(q) || String(p.elementId).includes(q))) return false;
+      return true;
+    });
+  }
+
+  function renderChips(){
+    // color chips with counts of remaining pieces
+    const byColor = new Map();
+    for (const p of current.parts){
+      if (p.spare && !prefs.showSpares) continue;
+      const c = byColor.get(p.color) || {name:p.color, rgb:p.rgb, trans:p.trans, total:0, done:0};
+      c.total += p.qty; c.done += Math.min(current.found[p.id]||0, p.qty);
+      byColor.set(p.color, c);
+    }
+    const arr = [...byColor.values()].sort((a,b) => b.total - a.total);
+    $("colorChips").innerHTML =
+      `<div class="chip ${colorFilter ? "" : "active"}" data-color=""><span class="sw" style="background:conic-gradient(#d01012,#ffcf00,#006cb7,#00852b,#d01012)"></span>Alle Farben</div>` +
+      arr.map(c => `<div class="chip ${colorFilter===c.name?"active":""} ${c.done>=c.total?"done":""}" data-color="${esc(c.name)}" title="${c.done}/${c.total} gefunden">
+        <span class="sw ${c.trans?"trans":""}" style="background:#${esc(c.rgb)}"></span>${esc(c.name)} <span class="muted">${c.total - c.done}</span></div>`).join("");
+  }
+
+  function sortFn(){
+    if (prefs.sortBy === "qty") return (a,b) => b.qty - a.qty || a.name.localeCompare(b.name);
+    if (prefs.sortBy === "part") return (a,b) => a.partNum.localeCompare(b.partNum, undefined, {numeric:true});
+    return (a,b) => a.name.localeCompare(b.name, "de");
+  }
+
+  function partCard(p){
+    const f = current.found[p.id] || 0, done = f >= p.qty;
+    return `<div class="part ${done?"done":""}" data-id="${esc(p.id)}">
+      <span class="qty">${p.qty}×</span>${p.spare ? `<span class="spare">Ersatz</span>` : ""}
+      <div class="pimg" data-zoom="${esc(p.id)}">${p.img ? `<img loading="lazy" src="${esc(p.img)}" alt="${esc(p.name)}">` : `<span class="noimg">kein Bild</span>`}</div>
+      <div class="pname" title="${esc(p.name)}">${esc(p.name)}</div>
+      <div class="pmeta"><span class="sw ${p.trans?"trans":""}" style="background:#${esc(p.rgb)}"></span>${esc(p.color)} · ${esc(p.partNum)}</div>
+      <div class="ctrl">
+        ${p.qty > 1 ? `<button data-act="minus" title="Eins weniger">−</button><span class="found">${f}/${p.qty}</span><button data-act="plus" title="Eins mehr">+</button>` : `<span class="found">${done ? "gefunden" : "offen"}</span>`}
+        <button class="check" data-act="toggle" title="${done ? "Als offen markieren" : "Alle gefunden"}">✓</button>
+      </div></div>`;
+  }
+
+  function renderParts(){
+    renderChips();
+    updateProgress();
+    const parts = visibleParts().sort(sortFn());
+    if (!parts.length){
+      $("partsList").innerHTML = `<div class="empty">${prefs.hideDone && !$("filterText").value ? "🎉 Alle Teile in dieser Auswahl gefunden!" : "Keine Teile gefunden."}</div>`;
+      return;
+    }
+    if (prefs.groupBy === "none"){
+      $("partsList").innerHTML = `<div class="grid">${parts.map(partCard).join("")}</div>`;
+      return;
+    }
+    const groups = new Map();
+    for (const p of parts){
+      const k = prefs.groupBy === "color" ? p.color : p.cat;
+      if (!groups.has(k)) groups.set(k, {key:k, rgb:p.rgb, trans:p.trans, items:[]});
+      groups.get(k).items.push(p);
+    }
+    let arr = [...groups.values()];
+    if (prefs.groupBy === "color") arr.sort((a,b) => colorLum(b.rgb) - colorLum(a.rgb) || a.key.localeCompare(b.key)); // hell → dunkel
+    else arr.sort((a,b) => a.key.localeCompare(b.key, "de"));
+    $("partsList").innerHTML = arr.map(g => {
+      const total = g.items.reduce((s,p)=>s+p.qty,0);
+      const done = g.items.reduce((s,p)=>s+Math.min(current.found[p.id]||0,p.qty),0);
+      const sw = prefs.groupBy === "color" ? `<span class="sw ${g.trans?"trans":""}" style="background:#${esc(g.rgb)}"></span>` : "";
+      return `<div class="group"><h3>${sw}${esc(g.key)}<span class="cnt">${done} / ${total} Teile</span></h3>
+        <div class="grid">${g.items.map(partCard).join("")}</div></div>`;
+    }).join("");
+  }
+
+  function setFound(id, val){
+    const p = current.parts.find(x => x.id === id); if (!p) return;
+    val = Math.max(0, Math.min(p.qty, val));
+    if (val) current.found[id] = val; else delete current.found[id];
+    current.updated = Date.now();
+    saveSets();
+    // Re-render only the card unless it should disappear
+    const willHide = prefs.hideDone && val >= p.qty;
+    const el = document.querySelector(`.part[data-id="${CSS.escape(id)}"]`);
+    if (el && !willHide){
+      el.outerHTML = partCard(p);
+      renderChips(); updateProgress();
+      // update group counter
+      document.querySelectorAll(".group").forEach(g => {
+        const ids = [...g.querySelectorAll(".part")].map(e => e.dataset.id);
+        if (!ids.includes(id)) return;
+        let t=0,d=0; ids.forEach(i => { const q = current.parts.find(x=>x.id===i); t+=q.qty; d+=Math.min(current.found[i]||0,q.qty); });
+        g.querySelector(".cnt").textContent = `${d} / ${t} Teile`;
+      });
+    } else renderParts();
+  }
+
+  // ---------- Loading a set ----------
+  async function loadSet(raw, force){
+    const setNum = normalizeSetNum(raw);
+    if (!setNum) return;
+    if (!force && sets[setNum]) return openSet(setNum);
+    if (!getKey()){ openSettings(); return; }
+    $("loadStatus").innerHTML = `<div class="loading" style="margin-top:12px"><div class="spinner"></div>Lade Teileliste für ${esc(setNum)}…</div>`;
+    try{
+      const data = await fetchSet(setNum);
+      if (sets[setNum]) { // keep progress on refresh
+        data.found = {}; const old = sets[setNum].found;
+        data.parts.forEach(p => { if (old[p.id]) data.found[p.id] = Math.min(old[p.id], p.qty); });
+        data.added = sets[setNum].added;
+      }
+      sets[data.setNum] = data; saveSets();
+      $("loadStatus").innerHTML = "";
+      $("setInput").value = "";
+      openSet(data.setNum);
+    }catch(e){
+      let msg = e.message;
+      if (msg === "NOKEY"){ openSettings(); msg = "Bitte zuerst den API-Schlüssel eintragen."; }
+      if (msg === "NOTFOUND") msg = `Bausatz „${setNum}“ wurde nicht gefunden. Tipp: Manche Sets haben eine andere Variante, z. B. „-2“.`;
+      $("loadStatus").innerHTML = `<div class="error">${esc(msg)}</div>`;
+      if (force) alert(msg);
+    }
+  }
+
+  // ---------- Settings ----------
+  function openSettings(){ $("apiKey").value = getKey(); $("settingsModal").classList.add("open"); setTimeout(()=>$("apiKey").focus(), 50); }
+  function closeModal(id){ $(id).classList.remove("open"); }
+
+  // ---------- Events ----------
+  $("homeLink").onclick = showHome;
+  $("backBtn").onclick = showHome;
+  $("settingsBtn").onclick = openSettings;
+  $("keyHintLink").onclick = e => { e.preventDefault(); openSettings(); };
+  $("settingsCancel").onclick = () => closeModal("settingsModal");
+  $("settingsSave").onclick = () => {
+    localStorage.setItem(LS_KEY, $("apiKey").value.trim());
+    closeModal("settingsModal");
+    $("keyHint").classList.toggle("hidden", !!getKey());
+  };
+  $("pmClose").onclick = () => closeModal("partModal");
+  document.querySelectorAll(".modal").forEach(m => m.addEventListener("click", e => { if (e.target === m) m.classList.remove("open"); }));
+  document.addEventListener("keydown", e => { if (e.key === "Escape") document.querySelectorAll(".modal.open").forEach(m => m.classList.remove("open")); });
+
+  $("searchForm").onsubmit = e => { e.preventDefault(); loadSet($("setInput").value); };
+
+  $("savedSets").onclick = e => {
+    const del = e.target.closest("[data-del]");
+    if (del){
+      e.stopPropagation();
+      const s = sets[del.dataset.del];
+      if (confirm(`„${s.name}“ (${s.setNum}) inklusive Fortschritt löschen?`)){ delete sets[del.dataset.del]; saveSets(); renderSaved(); }
+      return;
+    }
+    const card = e.target.closest("[data-set]");
+    if (card) openSet(card.dataset.set);
+  };
+
+  $("resetBtn").onclick = () => {
+    if (!confirm("Alle Häkchen für diesen Bausatz entfernen?")) return;
+    current.found = {}; current.updated = Date.now(); saveSets(); renderParts();
+  };
+  $("refreshBtn").onclick = () => loadSet(current.setNum, true);
+
+  let ft; $("filterText").oninput = () => { clearTimeout(ft); ft = setTimeout(renderParts, 150); };
+  const savePrefs = () => { save(LS_PREFS, prefs); renderParts(); };
+  $("groupBy").onchange = e => { prefs.groupBy = e.target.value; savePrefs(); };
+  $("sortBy").onchange = e => { prefs.sortBy = e.target.value; savePrefs(); };
+  $("hideDone").onchange = e => { prefs.hideDone = e.target.checked; savePrefs(); };
+  $("showSpares").onchange = e => { prefs.showSpares = e.target.checked; savePrefs(); };
+
+  $("colorChips").onclick = e => {
+    const c = e.target.closest("[data-color]"); if (!c) return;
+    colorFilter = c.dataset.color || null; renderParts();
+  };
+
+  $("partsList").onclick = e => {
+    const card = e.target.closest(".part"); if (!card) return;
+    const id = card.dataset.id, p = current.parts.find(x => x.id === id), f = current.found[id] || 0;
+    const btn = e.target.closest("[data-act]");
+    if (btn){
+      if (btn.dataset.act === "plus") setFound(id, f + 1);
+      else if (btn.dataset.act === "minus") setFound(id, f - 1);
+      else setFound(id, f >= p.qty ? 0 : p.qty);
+      return;
+    }
+    if (e.target.closest("[data-zoom]")){
+      $("pmImg").src = p.img || ""; $("pmImg").classList.toggle("hidden", !p.img);
+      $("pmName").textContent = p.name;
+      $("pmMeta").innerHTML = `Teilenummer <b>${esc(p.partNum)}</b>${p.elementId ? ` · Element-ID <b>${esc(p.elementId)}</b>` : ""}<br>
+        Farbe: <span class="sw ${p.trans?"trans":""}" style="display:inline-block;vertical-align:middle;width:14px;height:14px;background:#${esc(p.rgb)}"></span> ${esc(p.color)} · Kategorie: ${esc(p.cat)}<br>
+        Benötigt: <b>${p.qty}</b> · Gefunden: <b>${f}</b>${p.spare ? " · Ersatzteil" : ""}`;
+      $("pmLink").href = p.url || `https://rebrickable.com/parts/${encodeURIComponent(p.partNum)}/`;
+      $("partModal").classList.add("open");
+    }
+  };
+
+  // Export / import
+  $("exportBtn").onclick = () => {
+    const blob = new Blob([JSON.stringify({version:1, exported:new Date().toISOString(), sets}, null, 1)], {type:"application/json"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `lego-sortierhilfe-${new Date().toISOString().slice(0,10)}.json`;
+    a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  };
+  $("importBtn").onclick = () => $("importFile").click();
+  $("importFile").onchange = async e => {
+    const file = e.target.files[0]; if (!file) return;
+    try{
+      const data = JSON.parse(await file.text());
+      if (!data.sets || typeof data.sets !== "object") throw 0;
+      const n = Object.keys(data.sets).length;
+      if (!confirm(`${n} Bausätze importieren? Vorhandene Bausätze mit gleicher Nummer werden überschrieben.`)) return;
+      Object.assign(sets, data.sets); saveSets(); renderSaved();
+    }catch{ alert("Die Datei konnte nicht gelesen werden."); }
+    e.target.value = "";
+  };
+
+  // ---------- Init ----------
+  const hash = decodeURIComponent(location.hash.slice(1));
+  if (hash && sets[hash]) openSet(hash); else showHome();
+})();
+</script>
+</body>
+</html>
