@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Lego Sortierer">
+<meta name="theme-color" content="#d01012">
+<meta name="format-detection" content="telephone=no">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<title>Lego Sortierhilfe</title>
+<style>
+  :root{
+    --bg:#f5f5f2; --card:#fff; --ink:#1d1d1f; --muted:#6b6b70; --line:#e2e2de;
+    --accent:#d01012; --ok:#1a8f3c; --ok-bg:#e6f4ea; --yellow:#ffcf00;
+    --radius:14px; --hdr:60px;
+    --sat:env(safe-area-inset-top,0px); --sal:env(safe-area-inset-left,0px);
+    --sar:env(safe-area-inset-right,0px); --sab:env(safe-area-inset-bottom,0px);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html{-webkit-text-size-adjust:100%}
+  body{margin:0;font-family:-apple-system,system-ui,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink);font-size:16px;
+       touch-action:manipulation;overscroll-behavior-y:none}
+  header{background:var(--accent);color:#fff;height:calc(var(--hdr) + var(--sat));padding:var(--sat) calc(18px + var(--sar)) 0 calc(18px + var(--sal));
+         display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:20;box-shadow:0 2px 6px rgba(0,0,0,.15)}
+  header h1{font-size:20px;margin:0;font-weight:700;cursor:pointer;-webkit-user-select:none;user-select:none}
+  header .brick{width:28px;height:19px;background:var(--yellow);border-radius:3px;position:relative;flex:none}
+  header .brick:before,header .brick:after{content:"";position:absolute;top:-5px;width:8px;height:5px;background:var(--yellow);border-radius:2px 2px 0 0}
+  header .brick:before{left:4px} header .brick:after{right:4px}
+  header .spacer{flex:1}
+  #netState{font-size:13px;background:rgba(0,0,0,.25);padding:4px 10px;border-radius:20px}
+  button{font:inherit;cursor:pointer;border-radius:10px;border:1px solid var(--line);background:#fff;color:var(--ink);
+         min-height:44px;padding:8px 14px;-webkit-user-select:none;user-select:none;touch-action:manipulation}
+  button:active{transform:scale(.96)}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+  button.ghost{background:transparent;border-color:rgba(255,255,255,.55);color:#fff}
+  button.ghost.on{background:#fff;color:var(--accent)}
+  button:disabled{opacity:.5}
+  @media (hover:hover){ button:hover{filter:brightness(.96)} button.ghost:hover{background:rgba(255,255,255,.15)} }
+  input,select{font:inherit;font-size:16px;min-height:44px;padding:8px 12px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink)}
+  select{-webkit-appearance:none;appearance:none;padding-right:34px;
+    background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23666' stroke-width='2'/%3E%3C/svg%3E") no-repeat right 12px center}
+  main{max-width:1400px;margin:0 auto;padding:20px calc(20px + var(--sar)) calc(40px + var(--sab)) calc(20px + var(--sal))}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px;margin-bottom:18px}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .muted{color:var(--muted)} .small{font-size:14px}
+  h2{font-size:19px;margin:0 0 14px}
+  #searchForm input{flex:1;min-width:220px;font-size:20px;min-height:54px}
+  #searchForm button{font-size:18px;min-height:54px;padding:0 26px}
+  .error{background:#fdecec;border:1px solid #f3b7b7;color:#8a1010;border-radius:10px;padding:12px;margin-top:12px}
+  .info{background:#fff8d6;border:1px solid #f1df8a;border-radius:10px;padding:12px}
+  a{color:#0b5cad}
+  /* Saved sets */
+  .sets{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
+  .setcard{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff;cursor:pointer;display:flex;flex-direction:column}
+  .setcard:active{transform:scale(.98)}
+  .setcard .img{height:160px;background:#fafafa center/contain no-repeat;border-bottom:1px solid var(--line)}
+  .setcard .body{padding:12px 14px;flex:1;display:flex;flex-direction:column;gap:7px}
+  .setcard .title{font-weight:600;line-height:1.25;font-size:17px}
+  .setcard .foot{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .bar{height:9px;background:#e9e9e4;border-radius:5px;overflow:hidden}
+  .bar>div{height:100%;background:var(--ok);transition:width .25s}
+  .del{border:none;background:none;color:var(--muted);padding:6px 8px;font-size:14px}
+  /* Set head */
+  .sethead{display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap}
+  .sethead img{width:180px;height:135px;object-fit:contain;background:#fafafa;border-radius:10px;border:1px solid var(--line)}
+  .sethead .meta{flex:1;min-width:260px}
+  .sethead h2{font-size:23px;margin:0 0 4px}
+  .progress{margin-top:12px} .progress .bar{height:14px;border-radius:7px}
+  /* Toolbar (sticky) */
+  .toolbar{position:sticky;top:calc(var(--hdr) + var(--sat));z-index:10;background:var(--bg);
+           margin:0 calc(-20px - var(--sar)) 14px calc(-20px - var(--sal));padding:10px calc(20px + var(--sar)) 0 calc(20px + var(--sal));
+           border-bottom:1px solid var(--line);box-shadow:0 4px 8px -6px rgba(0,0,0,.15)}
+  .toolbar .row{flex-wrap:nowrap}
+  .toolbar input[type=search]{flex:1;min-width:120px}
+  .toggle{display:flex;align-items:center;gap:8px;white-space:nowrap;background:#fff;border:1px solid var(--line);border-radius:10px;min-height:44px;padding:0 12px;cursor:pointer;-webkit-user-select:none;user-select:none}
+  .toggle input{width:22px;height:22px;min-height:0;margin:0;accent-color:var(--ok)}
+  .chips{display:flex;gap:8px;overflow-x:auto;padding:10px 0 12px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .chips::-webkit-scrollbar{display:none}
+  .chip{flex:none;display:flex;align-items:center;gap:7px;border:1px solid var(--line);background:#fff;border-radius:22px;
+        min-height:40px;padding:4px 12px 4px 6px;font-size:14px;cursor:pointer;-webkit-user-select:none;user-select:none;white-space:nowrap}
+  .chip.active{border-color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--ink)}
+  .chip.done{opacity:.5}
+  .sw{width:24px;height:24px;border-radius:50%;border:1px solid rgba(0,0,0,.25);flex:none;display:inline-block}
+  .sw.trans{background-image:linear-gradient(135deg,rgba(255,255,255,.75) 0 32%,transparent 32%)!important}
+  /* Groups & parts */
+  .group{margin-bottom:24px}
+  .group h3{display:flex;align-items:center;gap:12px;font-size:17px;margin:0 0 12px;padding:10px 14px;background:#fff;border:1px solid var(--line);
+            border-radius:12px;cursor:pointer;-webkit-user-select:none;user-select:none;min-height:52px}
+  .group h3 .sw{width:28px;height:28px}
+  .group h3 .cnt{margin-left:auto;font-weight:500;font-size:14px;color:var(--muted)}
+  .group h3 .chev{transition:transform .2s;color:var(--muted)}
+  .group.collapsed h3 .chev{transform:rotate(-90deg)}
+  .group.collapsed .grid{display:none}
+  .group.complete h3{background:var(--ok-bg);border-color:#b9dfc5}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px}
+  .part{background:#fff;border:2px solid var(--line);border-radius:14px;padding:10px;display:flex;flex-direction:column;gap:7px;position:relative;
+        cursor:pointer;-webkit-user-select:none;user-select:none;transition:border-color .15s,background .15s,transform .08s}
+  .part:active{transform:scale(.97)}
+  .part.done{border-color:var(--ok);background:var(--ok-bg)}
+  .part.partial{border-color:#f0b400}
+  .part.done .pimg img{opacity:.5}
+  .part .pimg{height:130px;display:flex;align-items:center;justify-content:center;background:#fafafa;border-radius:10px;overflow:hidden;position:relative}
+  .part .pimg img{max-width:100%;max-height:100%;object-fit:contain;pointer-events:none;-webkit-touch-callout:none}
+  .part .pimg .noimg{color:var(--muted);font-size:13px}
+  .part .pimg .bigcheck{position:absolute;inset:0;display:none;align-items:center;justify-content:center;font-size:56px;color:var(--ok);font-weight:700}
+  .part.done .pimg .bigcheck{display:flex}
+  .part .qty{z-index:2;position:absolute;top:8px;left:8px;background:var(--ink);color:#fff;border-radius:8px;padding:2px 9px;font-weight:700;font-size:16px}
+  .part .spare{z-index:2;position:absolute;top:118px;left:8px;background:var(--yellow);border-radius:6px;padding:1px 7px;font-size:12px;font-weight:600}
+  .part .infoBtn{z-index:2;position:absolute;top:6px;right:6px;width:40px;height:40px;min-height:0;padding:0;border-radius:50%;
+                 font-size:18px;font-weight:700;background:rgba(255,255,255,.92);color:var(--muted)}
+  .part .pname{font-size:14px;line-height:1.25;height:2.5em;overflow:hidden}
+  .part .pmeta{font-size:12.5px;color:var(--muted);display:flex;align-items:center;gap:6px;overflow:hidden;white-space:nowrap}
+  .part .pmeta .sw{width:14px;height:14px}
+  .part .ctrl{display:flex;align-items:center;gap:8px;margin-top:auto}
+  .part .ctrl button{width:46px;padding:0;font-weight:700;font-size:20px}
+  .part .ctrl .found{flex:1;text-align:center;font-variant-numeric:tabular-nums;font-size:17px;font-weight:600}
+  .part.done .ctrl .check{background:var(--ok);border-color:var(--ok);color:#fff}
+  .empty{text-align:center;padding:36px;color:var(--muted);font-size:17px}
+  .loading{display:flex;align-items:center;gap:10px}
+  .spinner{width:22px;height:22px;border:3px solid #ddd;border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  /* Toast */
+  #toast{position:fixed;left:50%;bottom:calc(24px + var(--sab));transform:translate(-50%,140%);background:#1d1d1f;color:#fff;border-radius:14px;
+         padding:8px 8px 8px 18px;display:flex;align-items:center;gap:14px;z-index:60;transition:transform .25s;box-shadow:0 6px 20px rgba(0,0,0,.3);max-width:92vw}
+  #toast.show{transform:translate(-50%,0)}
+  #toast button{background:#fff;color:var(--ink);border:none;font-weight:600}
+  /* Modal */
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:50;padding:20px}
+  .modal.open{display:flex}
+  .modal .box{background:#fff;border-radius:18px;max-width:560px;width:100%;padding:22px;max-height:90vh;overflow:auto}
+  .modal .box img{width:100%;max-height:380px;object-fit:contain;background:#fafafa;border-radius:10px}
+  .modal h3{margin:0 0 10px;font-size:20px}
+  .modal .field{display:flex;flex-direction:column;gap:8px;margin:14px 0}
+  .pm-ctrl{display:flex;align-items:center;gap:12px;margin-top:16px}
+  .pm-ctrl button{width:60px;font-size:24px;font-weight:700}
+  .pm-ctrl .found{font-size:22px;font-weight:700;min-width:80px;text-align:center}
+  .hidden{display:none!important}
+  /* iPad landscape / large screens */
+  @media (min-width:1180px){ .grid{grid-template-columns:repeat(auto-fill,minmax(200px,1fr))} }
+  /* iPad Hochformat */
+  @media (max-width:1000px){
+    .toolbar .row{flex-wrap:wrap}
+    .toolbar input[type=search]{flex:1 1 100%}
+    .grid{grid-template-columns:repeat(auto-fill,minmax(170px,1fr))}
+  }
+  @media (max-width:700px){
+    main{padding-left:12px;padding-right:12px}
+    .toolbar{margin-left:-12px;margin-right:-12px;padding-left:12px;padding-right:12px}
+    .toolbar .row{flex-wrap:wrap}
+    .grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+    #netState{display:none}
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="brick"></div>
+  <h1 id="homeLink">Lego Sortierhilfe</h1>
+  <div class="spacer"></div>
+  <span id="netState" class="hidden">Offline</span>
+  <button class="ghost hidden" id="wakeBtn" title="Bildschirm bleibt an, solange die App offen ist">☀︎ Bildschirm an</button>
+  <button class="ghost" id="settingsBtn" aria-label="Einstellungen">⚙︎</button>
+</header>
+
+<main>
+  <!-- HOME -->
+  <section id="homeView">
+    <div class="panel">
+      <h2>Bausatz laden</h2>
+      <form id="searchForm" class="row">
+        <input id="setInput" type="search" placeholder="Artikelnummer, z. B. 42115" autocomplete="off" autocorrect="off" autocapitalize="off" inputmode="numeric" enterkeyhint="go">
+        <button class="primary" type="submit">Teile laden</button>
+      </form>
+      <div class="small muted" style="margin-top:8px">Varianten mit Bindestrich eingeben, z. B. 10497-2. Ohne Angabe wird „-1“ verwendet.</div>
+      <div id="keyHint" class="info small hidden" style="margin-top:12px">
+        Für den Abruf der Teilelisten wird ein kostenloser <b>Rebrickable-API-Schlüssel</b> benötigt.
+        <a href="#" id="keyHintLink">Jetzt eintragen</a>
+      </div>
+      <div id="loadStatus"></div>
+    </div>
+
+    <div class="panel">
+      <div class="row" style="justify-content:space-between;margin-bottom:14px">
+        <h2 style="margin:0">Gespeicherte Bausätze</h2>
+        <div class="row">
+          <button id="exportBtn" class="small">Sichern</button>
+          <button id="importBtn" class="small">Wiederherstellen</button>
+          <input type="file" id="importFile" accept="application/json,.json" class="hidden">
+        </div>
+      </div>
+      <div id="savedSets" class="sets"></div>
+    </div>
+  </section>
+
+  <!-- SET VIEW -->
+  <section id="setView" class="hidden">
+    <div class="panel">
+      <div class="sethead">
+        <img id="setImg" alt="">
+        <div class="meta">
+          <h2 id="setName"></h2>
+          <div class="muted" id="setMeta"></div>
+          <div class="progress">
+            <div class="row" style="justify-content:space-between;margin-bottom:5px">
+              <span id="progText"></span><span id="progPct" style="font-weight:700"></span>
+            </div>
+            <div class="bar"><div id="progBar"></div></div>
+          </div>
+          <div class="row" style="margin-top:14px">
+            <button id="backBtn">‹ Übersicht</button>
+            <button id="offlineBtn" title="Alle Teilebilder auf dem Gerät speichern">Bilder offline speichern</button>
+            <button id="refreshBtn">Neu laden</button>
+            <button id="resetBtn">Zurücksetzen</button>
+          </div>
+          <div id="offlineStatus" class="small muted" style="margin-top:8px"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <div class="row">
+        <input type="search" id="filterText" placeholder="Teil suchen…" autocorrect="off" autocapitalize="off" enterkeyhint="search">
+        <select id="groupBy" aria-label="Gruppierung">
+          <option value="color">Nach Farbe</option>
+          <option value="category">Nach Kategorie</option>
+          <option value="none">Ohne Gruppen</option>
+        </select>
+        <select id="sortBy" aria-label="Sortierung">
+          <option value="name">Name</option>
+          <option value="qty">Anzahl</option>
+          <option value="part">Teilenr.</option>
+        </select>
+        <label class="toggle"><input type="checkbox" id="hideDone"> Gefundene ausblenden</label>
+        <label class="toggle"><input type="checkbox" id="showSpares" checked> Ersatzteile</label>
+      </div>
+      <div id="colorChips" class="chips"></div>
+    </div>
+
+    <div class="small muted" style="margin:-4px 0 12px">Tippe auf ein Teil, um es als gefunden zu zählen. ⓘ zeigt Details und ein großes Bild.</div>
+    <div id="partsList"></div>
+  </section>
+</main>
+
+<div id="toast"><span id="toastText"></span><button id="toastUndo">Rückgängig</button></div>
+
+<!-- Settings modal -->
+<div class="modal" id="settingsModal">
+  <div class="box">
+    <h3>Einstellungen</h3>
+    <div class="field">
+      <label for="apiKey"><b>Rebrickable-API-Schlüssel</b></label>
+      <input id="apiKey" placeholder="API-Schlüssel einfügen" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+      <div class="small muted">
+        Kostenlos: Konto auf <a href="https://rebrickable.com/signup/" target="_blank" rel="noopener">rebrickable.com</a> anlegen →
+        <a href="https://rebrickable.com/users/profile/settings/#api" target="_blank" rel="noopener">Settings → API</a> →
+        „Generate new API Key“. Der Schlüssel bleibt nur auf diesem Gerät.
+      </div>
+    </div>
+    <div id="storageInfo" class="small muted"></div>
+    <div class="row" style="justify-content:flex-end;margin-top:18px">
+      <button id="settingsCancel">Abbrechen</button>
+      <button class="primary" id="settingsSave">Speichern</button>
+    </div>
+  </div>
+</div>
+
+<!-- Part detail modal -->
+<div class="modal" id="partModal">
+  <div class="box">
+    <img id="pmImg" alt="">
+    <h3 id="pmName" style="margin-top:14px"></h3>
+    <div id="pmMeta" class="muted"></div>
+    <div class="pm-ctrl">
+      <button id="pmMinus">−</button><span class="found" id="pmFound"></span><button id="pmPlus">+</button>
+      <button id="pmAll" class="primary" style="width:auto;font-size:16px;margin-left:auto">Alle gefunden</button>
+    </div>
+    <div class="row" style="justify-content:space-between;margin-top:18px">
+      <a id="pmLink" target="_blank" rel="noopener" class="small">Auf Rebrickable ansehen ↗</a>
+      <button id="pmClose">Schließen</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const API = "https://rebrickable.com/api/v3/lego";
+  const LS_KEY = "legoSort.apiKey", LS_SETS = "legoSort.sets", LS_CATS = "legoSort.categories", LS_PREFS = "legoSort.prefs";
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+  // ---------- Storage ----------
+  function load(key, fb){ try{ const v = localStorage.getItem(key); return v ? JSON.parse(v) : fb; }catch{ return fb; } }
+  function save(key, val){ try{ localStorage.setItem(key, JSON.stringify(val)); }catch{ alert("Speichern fehlgeschlagen – Gerätespeicher voll?"); } }
+  const getKey = () => (localStorage.getItem(LS_KEY) || "").trim();
+  let sets = load(LS_SETS, {});
+  let prefs = Object.assign({groupBy:"color", sortBy:"name", hideDone:false, showSpares:true, collapsed:{}}, load(LS_PREFS, {}));
+  let current = null, colorFilter = null, modalPartId = null;
+  const saveSets = () => save(LS_SETS, sets);
+  const savePrefsOnly = () => save(LS_PREFS, prefs);
+  if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(()=>{});
+
+  // ---------- API ----------
+  const normalizeSetNum = s => { s = s.trim().replace(/\s+/g, ""); return !s ? "" : /-\d+$/.test(s) ? s : s + "-1"; };
+  async function api(path){
+    const key = getKey(); if (!key) throw new Error("NOKEY");
+    const url = path.startsWith("http") ? path : API + path;
+    let res;
+    try { res = await fetch(url + (url.includes("key=") ? "" : (url.includes("?") ? "&" : "?") + "key=" + encodeURIComponent(key))); }
+    catch { throw new Error(navigator.onLine ? "Keine Verbindung zu Rebrickable." : "Keine Internetverbindung. Gespeicherte Bausätze funktionieren trotzdem."); }
+    if (res.status === 404) throw new Error("NOTFOUND");
+    if (res.status === 401 || res.status === 403) throw new Error("Der API-Schlüssel wurde abgelehnt. Bitte in den Einstellungen prüfen.");
+    if (res.status === 429) throw new Error("Zu viele Anfragen – bitte kurz warten und erneut versuchen.");
+    if (!res.ok) throw new Error("Fehler beim Abruf (HTTP " + res.status + ").");
+    return res.json();
+  }
+  async function apiAll(path){ let out = [], next = path; while (next){ const d = await api(next); out = out.concat(d.results || []); next = d.next; } return out; }
+  async function getCategories(){
+    let cats = load(LS_CATS, null); if (cats) return cats;
+    cats = {}; (await apiAll("/part_categories/?page_size=1000")).forEach(c => cats[c.id] = c.name);
+    save(LS_CATS, cats); return cats;
+  }
+  async function fetchSet(setNum){
+    const info = await api(`/sets/${encodeURIComponent(setNum)}/`);
+    const [parts, cats] = await Promise.all([
+      apiAll(`/sets/${encodeURIComponent(setNum)}/parts/?page_size=1000&inc_minifig_parts=1`),
+      getCategories().catch(() => ({}))
+    ]);
+    const map = new Map();
+    for (const p of parts){
+      const id = `${p.part.part_num}|${p.color.id}|${p.is_spare ? 1 : 0}`;
+      if (map.has(id)){ map.get(id).qty += p.quantity; continue; }
+      map.set(id, { id, partNum:p.part.part_num, name:p.part.name, img:p.part.part_img_url || "", url:p.part.part_url || "",
+        cat:cats[p.part.part_cat_id] || "Sonstige", color:p.color.name, colorId:p.color.id, rgb:p.color.rgb || "cccccc",
+        trans:!!p.color.is_trans, elementId:p.element_id || "", qty:p.quantity, spare:!!p.is_spare });
+    }
+    return { setNum:info.set_num, name:info.name, year:info.year, numParts:info.num_parts, img:info.set_img_url || "", url:info.set_url || "",
+             parts:[...map.values()], found:{}, added:Date.now(), updated:Date.now() };
+  }
+
+  // ---------- Helpers ----------
+  function progress(s, inclSpares){
+    let total = 0, done = 0;
+    for (const p of s.parts){ if (p.spare && !inclSpares) continue; total += p.qty; done += Math.min(s.found[p.id] || 0, p.qty); }
+    return {total, done, pct: total ? Math.floor(done / total * 100) : 0};
+  }
+  const lum = rgb => { const n = parseInt(rgb,16); return .299*(n>>16&255)+.587*(n>>8&255)+.114*(n&255); };
+  const partById = id => current.parts.find(x => x.id === id);
+
+  // ---------- Toast / Undo ----------
+  let undoStack = [], toastTimer;
+  function toast(text, undoable){
+    $("toastText").textContent = text;
+    $("toastUndo").classList.toggle("hidden", !undoable);
+    $("toast").classList.add("show");
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => $("toast").classList.remove("show"), 3500);
+  }
+  $("toastUndo").onclick = () => {
+    const u = undoStack.pop(); if (!u || !current || u.set !== current.setNum) return;
+    applyFound(u.id, u.prev, false); $("toast").classList.remove("show");
+  };
+
+  // ---------- Views ----------
+  function showHome(){
+    current = null; colorFilter = null;
+    $("setView").classList.add("hidden"); $("homeView").classList.remove("hidden");
+    $("keyHint").classList.toggle("hidden", !!getKey());
+    renderSaved(); history.replaceState(null, "", location.pathname + location.search); window.scrollTo(0,0);
+  }
+  function renderSaved(){
+    const list = Object.values(sets).sort((a,b) => (b.updated||0) - (a.updated||0));
+    $("savedSets").innerHTML = !list.length
+      ? `<div class="empty" style="grid-column:1/-1">Noch keine Bausätze gespeichert. Gib oben eine Artikelnummer ein.</div>`
+      : list.map(s => { const pr = progress(s, false);
+          return `<div class="setcard" data-set="${esc(s.setNum)}">
+            <div class="img" style="background-image:url('${esc(s.img)}')"></div>
+            <div class="body"><div class="title">${esc(s.name)}</div>
+              <div class="small muted">${esc(s.setNum)} · ${esc(s.year)} · ${pr.total} Teile</div>
+              <div class="bar"><div style="width:${pr.pct}%"></div></div>
+              <div class="foot"><span class="small">${pr.done} / ${pr.total} (${pr.pct} %)</span>
+                <button class="del" data-del="${esc(s.setNum)}">Löschen</button></div></div></div>`; }).join("");
+  }
+  function openSet(setNum){
+    current = sets[setNum]; if (!current) return showHome();
+    colorFilter = null; undoStack = [];
+    $("homeView").classList.add("hidden"); $("setView").classList.remove("hidden");
+    $("setImg").src = current.img || ""; $("setImg").classList.toggle("hidden", !current.img);
+    $("setName").textContent = current.name;
+    $("setMeta").innerHTML = `${esc(current.setNum)} · ${esc(current.year)} · ${current.parts.length} verschiedene Teile` +
+      (current.url ? ` · <a href="${esc(current.url)}" target="_blank" rel="noopener">Rebrickable ↗</a>` : "");
+    $("offlineStatus").textContent = current.imgsCached ? "Bilder sind offline gespeichert." : "";
+    $("groupBy").value = prefs.groupBy; $("sortBy").value = prefs.sortBy;
+    $("hideDone").checked = prefs.hideDone; $("showSpares").checked = prefs.showSpares; $("filterText").value = "";
+    history.replaceState(null, "", "#" + encodeURIComponent(setNum));
+    renderParts(); window.scrollTo(0,0);
+  }
+  function updateProgress(){
+    const pr = progress(current, prefs.showSpares);
+    $("progText").textContent = `${pr.done} von ${pr.total} Teilen gefunden`;
+    $("progPct").textContent = pr.pct + " %"; $("progBar").style.width = pr.pct + "%";
+  }
+  function visibleParts(){
+    const q = $("filterText").value.trim().toLowerCase();
+    return current.parts.filter(p => {
+      if (p.spare && !prefs.showSpares) return false;
+      if (prefs.hideDone && (current.found[p.id]||0) >= p.qty) return false;
+      if (colorFilter && p.color !== colorFilter) return false;
+      if (q && !(p.name.toLowerCase().includes(q) || p.partNum.toLowerCase().includes(q) || p.color.toLowerCase().includes(q) || String(p.elementId).includes(q))) return false;
+      return true;
+    });
+  }
+  function renderChips(){
+    const by = new Map();
+    for (const p of current.parts){
+      if (p.spare && !prefs.showSpares) continue;
+      const c = by.get(p.color) || {name:p.color, rgb:p.rgb, trans:p.trans, total:0, done:0};
+      c.total += p.qty; c.done += Math.min(current.found[p.id]||0, p.qty); by.set(p.color, c);
+    }
+    const sc = $("colorChips").scrollLeft;
+    $("colorChips").innerHTML =
+      `<div class="chip ${colorFilter ? "" : "active"}" data-color=""><span class="sw" style="background:conic-gradient(#d01012,#ffcf00,#006cb7,#00852b,#d01012)"></span>Alle</div>` +
+      [...by.values()].sort((a,b) => b.total - a.total).map(c =>
+        `<div class="chip ${colorFilter===c.name?"active":""} ${c.done>=c.total?"done":""}" data-color="${esc(c.name)}">
+          <span class="sw ${c.trans?"trans":""}" style="background:#${esc(c.rgb)}"></span>${esc(c.name)} <span class="muted">${c.done>=c.total ? "✓" : c.total - c.done}</span></div>`).join("");
+    $("colorChips").scrollLeft = sc;
+  }
+  function sortFn(){
+    if (prefs.sortBy === "qty") return (a,b) => b.qty - a.qty || a.name.localeCompare(b.name, "de");
+    if (prefs.sortBy === "part") return (a,b) => a.partNum.localeCompare(b.partNum, undefined, {numeric:true});
+    return (a,b) => a.name.localeCompare(b.name, "de");
+  }
+  function partCard(p){
+    const f = current.found[p.id] || 0, done = f >= p.qty, partial = f > 0 && !done;
+    return `<div class="part ${done?"done":""} ${partial?"partial":""}" data-id="${esc(p.id)}">
+      <span class="qty">${p.qty}×</span>
+      <button class="infoBtn" data-act="info" aria-label="Details">i</button>
+      <div class="pimg">${p.img ? `<img loading="lazy" decoding="async" src="${esc(p.img)}" alt="">` : `<span class="noimg">kein Bild</span>`}<span class="bigcheck">✓</span></div>
+      ${p.spare ? `<span class="spare">Ersatz</span>` : ""}
+      <div class="pname">${esc(p.name)}</div>
+      <div class="pmeta"><span class="sw ${p.trans?"trans":""}" style="background:#${esc(p.rgb)}"></span>${esc(p.color)} · ${esc(p.partNum)}</div>
+      <div class="ctrl">
+        <button data-act="minus" aria-label="Eins weniger" ${f ? "" : "disabled"}>−</button>
+        <span class="found">${f} / ${p.qty}</span>
+        <button class="check" data-act="toggle" aria-label="Alle gefunden">✓</button>
+      </div></div>`;
+  }
+  function groupStats(items){
+    let t=0,d=0; items.forEach(p => { t += p.qty; d += Math.min(current.found[p.id]||0, p.qty); }); return {t,d};
+  }
+  function renderParts(){
+    renderChips(); updateProgress();
+    const parts = visibleParts().sort(sortFn());
+    if (!parts.length){
+      $("partsList").innerHTML = `<div class="empty">${prefs.hideDone && !$("filterText").value ? "🎉 Alle Teile in dieser Auswahl gefunden!" : "Keine Teile gefunden."}</div>`;
+      return;
+    }
+    if (prefs.groupBy === "none"){ $("partsList").innerHTML = `<div class="grid">${parts.map(partCard).join("")}</div>`; return; }
+    const groups = new Map();
+    for (const p of parts){
+      const k = prefs.groupBy === "color" ? p.color : p.cat;
+      if (!groups.has(k)) groups.set(k, {key:k, rgb:p.rgb, trans:p.trans, items:[]});
+      groups.get(k).items.push(p);
+    }
+    const arr = [...groups.values()];
+    if (prefs.groupBy === "color") arr.sort((a,b) => lum(b.rgb) - lum(a.rgb) || a.key.localeCompare(b.key)); else arr.sort((a,b) => a.key.localeCompare(b.key, "de"));
+    $("partsList").innerHTML = arr.map(g => {
+      const {t,d} = groupStats(g.items), gk = prefs.groupBy + ":" + g.key;
+      const sw = prefs.groupBy === "color" ? `<span class="sw ${g.trans?"trans":""}" style="background:#${esc(g.rgb)}"></span>` : "";
+      return `<div class="group ${prefs.collapsed[gk] ? "collapsed" : ""} ${d>=t ? "complete" : ""}" data-group="${esc(gk)}">
+        <h3><span class="chev">▾</span>${sw}${esc(g.key)}<span class="cnt">${d} / ${t} Teile</span></h3>
+        <div class="grid">${g.items.map(partCard).join("")}</div></div>`;
+    }).join("");
+  }
+
+  function applyFound(id, val, withUndo){
+    const p = partById(id); if (!p) return;
+    const prev = current.found[id] || 0;
+    val = Math.max(0, Math.min(p.qty, val));
+    if (val === prev) return;
+    if (val) current.found[id] = val; else delete current.found[id];
+    current.updated = Date.now(); saveSets();
+    if (withUndo){ undoStack.push({set:current.setNum, id, prev}); if (undoStack.length > 50) undoStack.shift(); }
+    const el = document.querySelector(`.part[data-id="${CSS.escape(id)}"]`);
+    if (el && !(prefs.hideDone && val >= p.qty)){
+      const grp = el.closest(".group");
+      el.outerHTML = partCard(p);
+      if (grp){
+        const items = [...grp.querySelectorAll(".part")].map(e => partById(e.dataset.id));
+        const {t,d} = groupStats(items);
+        grp.querySelector(".cnt").textContent = `${d} / ${t} Teile`;
+        grp.classList.toggle("complete", d >= t);
+      }
+      renderChips(); updateProgress();
+    } else {
+      // Karte verschwindet (ausgeblendet) – kurz verzögern, damit man das Häkchen sieht
+      if (el){ el.classList.add("done"); setTimeout(renderParts, 350); } else renderParts();
+    }
+    if (withUndo && val >= p.qty) toast(`✓ ${p.qty}× ${p.name}`, true);
+    if (modalPartId === id) fillPartModal();
+  }
+
+  // ---------- Loading a set ----------
+  async function loadSet(raw, force){
+    const setNum = normalizeSetNum(raw); if (!setNum) return;
+    if (!force && sets[setNum]) return openSet(setNum);
+    if (!getKey()){ openSettings(); return; }
+    $("loadStatus").innerHTML = `<div class="loading" style="margin-top:12px"><div class="spinner"></div>Lade Teileliste für ${esc(setNum)}…</div>`;
+    if (force) toast("Lade Teileliste neu…");
+    try{
+      const data = await fetchSet(setNum);
+      if (sets[setNum]){
+        const old = sets[setNum].found;
+        data.parts.forEach(p => { if (old[p.id]) data.found[p.id] = Math.min(old[p.id], p.qty); });
+        data.added = sets[setNum].added;
+      }
+      sets[data.setNum] = data; saveSets();
+      $("loadStatus").innerHTML = ""; $("setInput").value = ""; $("setInput").blur();
+      openSet(data.setNum);
+      if (force) toast("Teileliste aktualisiert");
+    }catch(e){
+      let msg = e.message;
+      if (msg === "NOKEY"){ openSettings(); msg = "Bitte zuerst den API-Schlüssel eintragen."; }
+      if (msg === "NOTFOUND") msg = `Bausatz „${setNum}“ wurde nicht gefunden. Tipp: Manche Sets haben eine andere Variante, z. B. „-2“.`;
+      if (force) toast(msg); else $("loadStatus").innerHTML = `<div class="error">${esc(msg)}</div>`;
+    }
+  }
+
+  // ---------- Offline images ----------
+  async function cacheImages(){
+    if (!("serviceWorker" in navigator) || !navigator.serviceWorker.controller){
+      $("offlineStatus").textContent = "Offline-Speicher ist nur verfügbar, wenn die App über ihre Internetadresse (z. B. GitHub Pages) geöffnet wird.";
+      return;
+    }
+    const urls = [...new Set(current.parts.map(p => p.img).filter(Boolean))];
+    if (current.img) urls.push(current.img);
+    const btn = $("offlineBtn"); btn.disabled = true;
+    let n = 0, fail = 0;
+    const queue = urls.slice();
+    async function worker(){
+      while (queue.length){
+        const u = queue.shift();
+        try { await fetch(u, {mode:"no-cors"}); } catch { fail++; }
+        n++; $("offlineStatus").textContent = `Speichere Bilder… ${n} / ${urls.length}`;
+      }
+    }
+    await Promise.all([worker(), worker(), worker(), worker()]);
+    btn.disabled = false;
+    if (!fail){ current.imgsCached = true; saveSets(); }
+    $("offlineStatus").textContent = fail ? `${urls.length - fail} von ${urls.length} Bildern gespeichert (${fail} fehlgeschlagen – später erneut versuchen).` : "Bilder sind offline gespeichert.";
+  }
+
+  // ---------- Wake lock ----------
+  let wakeLock = null, wakeWanted = false;
+  async function setWake(on){
+    wakeWanted = on;
+    try{
+      if (on){ wakeLock = await navigator.wakeLock.request("screen"); wakeLock.addEventListener("release", () => { wakeLock = null; updWake(); }); }
+      else if (wakeLock){ await wakeLock.release(); wakeLock = null; }
+    }catch{ wakeWanted = false; toast("Bildschirm-an wird von diesem Gerät nicht unterstützt"); }
+    updWake();
+  }
+  const updWake = () => $("wakeBtn").classList.toggle("on", !!wakeLock);
+  if ("wakeLock" in navigator){
+    $("wakeBtn").classList.remove("hidden");
+    $("wakeBtn").onclick = () => setWake(!wakeLock);
+    document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && wakeWanted && !wakeLock) setWake(true); });
+  }
+
+  // ---------- Online state ----------
+  const updNet = () => $("netState").classList.toggle("hidden", navigator.onLine);
+  addEventListener("online", updNet); addEventListener("offline", updNet); updNet();
+
+  // ---------- Modals ----------
+  async function openSettings(){
+    $("apiKey").value = getKey(); $("settingsModal").classList.add("open");
+    if (navigator.storage && navigator.storage.estimate){
+      try{ const e = await navigator.storage.estimate();
+        $("storageInfo").textContent = `Belegter Speicher (inkl. Bilder): ${(e.usage/1048576).toFixed(1)} MB`; }catch{}
+    }
+  }
+  const closeModal = id => { $(id).classList.remove("open"); if (id === "partModal") modalPartId = null; };
+  function fillPartModal(){
+    const p = partById(modalPartId); if (!p) return;
+    const f = current.found[p.id] || 0;
+    $("pmImg").src = p.img || ""; $("pmImg").classList.toggle("hidden", !p.img);
+    $("pmName").textContent = p.name;
+    $("pmMeta").innerHTML = `Teilenummer <b>${esc(p.partNum)}</b>${p.elementId ? ` · Element-ID <b>${esc(p.elementId)}</b>` : ""}<br>
+      <span class="sw ${p.trans?"trans":""}" style="width:16px;height:16px;vertical-align:-3px;background:#${esc(p.rgb)}"></span> ${esc(p.color)} · ${esc(p.cat)}${p.spare ? " · Ersatzteil" : ""}`;
+    $("pmFound").textContent = `${f} / ${p.qty}`;
+    $("pmMinus").disabled = !f; $("pmPlus").disabled = f >= p.qty;
+    $("pmAll").textContent = f >= p.qty ? "Als offen markieren" : "Alle gefunden";
+    $("pmLink").href = p.url || `https://rebrickable.com/parts/${encodeURIComponent(p.partNum)}/`;
+  }
+
+  // ---------- Events ----------
+  $("homeLink").onclick = showHome; $("backBtn").onclick = showHome;
+  $("settingsBtn").onclick = openSettings;
+  $("keyHintLink").onclick = e => { e.preventDefault(); openSettings(); };
+  $("settingsCancel").onclick = () => closeModal("settingsModal");
+  $("settingsSave").onclick = () => { localStorage.setItem(LS_KEY, $("apiKey").value.trim()); closeModal("settingsModal"); $("keyHint").classList.toggle("hidden", !!getKey()); };
+  $("pmClose").onclick = () => closeModal("partModal");
+  $("pmMinus").onclick = () => applyFound(modalPartId, (current.found[modalPartId]||0) - 1, true);
+  $("pmPlus").onclick = () => applyFound(modalPartId, (current.found[modalPartId]||0) + 1, true);
+  $("pmAll").onclick = () => { const p = partById(modalPartId); applyFound(p.id, (current.found[p.id]||0) >= p.qty ? 0 : p.qty, true); };
+  document.querySelectorAll(".modal").forEach(m => m.addEventListener("click", e => { if (e.target === m) closeModal(m.id); }));
+  document.addEventListener("keydown", e => { if (e.key === "Escape") document.querySelectorAll(".modal.open").forEach(m => closeModal(m.id)); });
+
+  $("searchForm").onsubmit = e => { e.preventDefault(); loadSet($("setInput").value); };
+  $("savedSets").onclick = e => {
+    const del = e.target.closest("[data-del]");
+    if (del){ e.stopPropagation(); const s = sets[del.dataset.del];
+      if (confirm(`„${s.name}“ (${s.setNum}) inklusive Fortschritt löschen?`)){ delete sets[del.dataset.del]; saveSets(); renderSaved(); } return; }
+    const card = e.target.closest("[data-set]"); if (card) openSet(card.dataset.set);
+  };
+  $("resetBtn").onclick = () => { if (!confirm("Alle Häkchen für diesen Bausatz entfernen?")) return; current.found = {}; current.updated = Date.now(); undoStack = []; saveSets(); renderParts(); };
+  $("refreshBtn").onclick = () => loadSet(current.setNum, true);
+  $("offlineBtn").onclick = cacheImages;
+
+  let ft; $("filterText").oninput = () => { clearTimeout(ft); ft = setTimeout(renderParts, 150); };
+  const setPref = (k, v) => { prefs[k] = v; savePrefsOnly(); renderParts(); };
+  $("groupBy").onchange = e => setPref("groupBy", e.target.value);
+  $("sortBy").onchange = e => setPref("sortBy", e.target.value);
+  $("hideDone").onchange = e => setPref("hideDone", e.target.checked);
+  $("showSpares").onchange = e => setPref("showSpares", e.target.checked);
+  $("colorChips").onclick = e => {
+    const c = e.target.closest("[data-color]"); if (!c) return;
+    colorFilter = c.dataset.color || null; renderParts();
+    window.scrollTo({top: $("partsList").offsetTop - 200, behavior:"smooth"});
+  };
+
+  $("partsList").onclick = e => {
+    const h = e.target.closest(".group h3");
+    if (h){ const g = h.parentElement, k = g.dataset.group; prefs.collapsed[k] = !prefs.collapsed[k]; g.classList.toggle("collapsed", !!prefs.collapsed[k]); savePrefsOnly(); return; }
+    const card = e.target.closest(".part"); if (!card) return;
+    const id = card.dataset.id, p = partById(id), f = current.found[id] || 0;
+    const act = e.target.closest("[data-act]")?.dataset.act;
+    if (act === "info"){ modalPartId = id; fillPartModal(); $("partModal").classList.add("open"); return; }
+    if (act === "minus") return applyFound(id, f - 1, true);
+    if (act === "toggle") return applyFound(id, f >= p.qty ? 0 : p.qty, true);
+    // Tipp auf die Karte: +1 (bei Einzelteilen umschalten)
+    if (p.qty === 1) applyFound(id, f ? 0 : 1, true);
+    else if (f < p.qty) applyFound(id, f + 1, true);
+    else toast("Schon komplett – mit − korrigieren");
+  };
+
+  // Export / import
+  $("exportBtn").onclick = async () => {
+    const json = JSON.stringify({version:1, exported:new Date().toISOString(), sets});
+    const name = `lego-sortierhilfe-${new Date().toISOString().slice(0,10)}.json`;
+    const file = new File([json], name, {type:"application/json"});
+    if (navigator.canShare && navigator.canShare({files:[file]})){
+      try { await navigator.share({files:[file], title:"Lego Sortierhilfe Sicherung"}); return; } catch(err){ if (err.name === "AbortError") return; }
+    }
+    const a = document.createElement("a"); a.href = URL.createObjectURL(file); a.download = name; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  };
+  $("importBtn").onclick = () => $("importFile").click();
+  $("importFile").onchange = async e => {
+    const file = e.target.files[0]; if (!file) return;
+    try{
+      const data = JSON.parse(await file.text()); if (!data.sets || typeof data.sets !== "object") throw 0;
+      const n = Object.keys(data.sets).length;
+      if (confirm(`${n} Bausätze importieren? Bausätze mit gleicher Nummer werden überschrieben.`)){ Object.assign(sets, data.sets); saveSets(); renderSaved(); toast(`${n} Bausätze importiert`); }
+    }catch{ alert("Die Datei konnte nicht gelesen werden."); }
+    e.target.value = "";
+  };
+
+  // ---------- Service worker ----------
+  if ("serviceWorker" in navigator && location.protocol.startsWith("http")) navigator.serviceWorker.register("sw.js").catch(()=>{});
+
+  // ---------- Init ----------
+  const hash = decodeURIComponent(location.hash.slice(1));
+  if (hash && sets[hash]) openSet(hash); else showHome();
+})();
+</script>
+</body>
+</html>
