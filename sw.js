@@ -1,5 +1,5 @@
 // Service Worker: App offline verfügbar machen + Teilebilder zwischenspeichern
-const APP_CACHE = "lego-app-v4";
+const APP_CACHE = "lego-app-v5";
 const IMG_CACHE = "lego-img-v1";
 const APP_FILES = ["./index.html", "./manifest.webmanifest", "./apple-touch-icon.png", "./icon-192.png", "./icon-512.png"];
 
